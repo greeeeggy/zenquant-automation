@@ -49,8 +49,8 @@ async function automatedLogin() {
                (window.location.hash.length > 0 && !window.location.href.includes('login'));
     }, { timeout: 30000 });
 
-    console.log("Login successful! Waiting 5 seconds to ensure session tokens are saved...");
-    await page.waitForTimeout(5000);
+    console.log("Login successful! Waiting 10 seconds to ensure session tokens are saved...");
+    await page.waitForTimeout(10000);
 
     // Save storage state
     const storageStatePath = path.join(__dirname, 'storageState.json');

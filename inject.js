@@ -69,8 +69,8 @@ async function loginAndInject() {
                    (window.location.hash.length > 0 && !window.location.href.includes('login'));
         }, { timeout: 30000 });
 
-        console.log("Login successful! Waiting 5 seconds to ensure session tokens are saved...");
-        await page.waitForTimeout(5000);
+        console.log("Login successful! Waiting 10 seconds to ensure session tokens are saved...");
+        await page.waitForTimeout(10000);
 
         // Save storage state
         await context.storageState({ path: storageStatePath });
@@ -90,14 +90,16 @@ async function loginAndInject() {
         if (await claimableBtn.isVisible({ timeout: 5000 })) {
             console.log("Found Claimable button! Clicking it...");
             await claimableBtn.click({ force: true });
-            await page.waitForTimeout(2000);
+            console.log("Waiting 10 seconds after clicking Claimable...");
+            await page.waitForTimeout(10000);
 
             // Click the Confirm button on the Claimable dialog
             const claimConfirmBtn = page.locator('.btnConfirm').filter({ hasText: 'Confirm' }).first();
             if (await claimConfirmBtn.isVisible({ timeout: 5000 })) {
                 console.log("Clicking Claimable dialog 'Confirm' button...");
                 await claimConfirmBtn.click({ force: true });
-                await page.waitForTimeout(2000);
+                console.log("Waiting 10 seconds after confirming claim...");
+                await page.waitForTimeout(10000);
             }
         } else {
             console.log("No Claimable button found. It might still be on cooldown, or we might just need to inject. Proceeding...");
@@ -118,6 +120,8 @@ async function loginAndInject() {
         console.log("Could not fill input element directly. Attempting force fill...");
         await amountInput.fill('50', { force: true });
     }
+    console.log("Waiting 10 seconds after entering amount...");
+    await page.waitForTimeout(10000);
 
     // Press Confirm Injection
     console.log("Clicking 'Confirm injection'...");
@@ -130,6 +134,8 @@ async function loginAndInject() {
        console.log("Could not find the 'Confirm injection' button by class. Attempting coordinate click...");
        await page.mouse.click(500, 820); 
     }
+    console.log("Waiting 10 seconds after clicking Confirm injection...");
+    await page.waitForTimeout(10000);
 
     // Wait for the "semi terminal" and the final Confirm button
     console.log("Waiting for the semi terminal and final Confirm button...");
@@ -145,7 +151,8 @@ async function loginAndInject() {
         console.log("Final confirm button did not appear within 15 seconds or could not be clicked.");
     }
 
-    await page.waitForTimeout(3000); // give it a few seconds to finish closing modal
+    console.log("Waiting 10 seconds after final confirm...");
+    await page.waitForTimeout(10000); // give it a few seconds to finish closing modal
 
   } catch (error) {
     console.error("Automation error:", error);
