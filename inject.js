@@ -134,8 +134,8 @@ async function loginAndInject() {
        console.log("Could not find the 'Confirm injection' button by class. Attempting coordinate click...");
        await page.mouse.click(500, 820); 
     }
-    console.log("Waiting 10 seconds after clicking Confirm injection...");
-    await page.waitForTimeout(10000);
+    console.log("Waiting 30 seconds for the System Log (semi terminal) progress bar to complete...");
+    await page.waitForTimeout(30000);
 
     // Wait for the "semi terminal" and the final Confirm button
     console.log("Waiting for the semi terminal and final Confirm button...");
