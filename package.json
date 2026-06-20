@@ -1,0 +1,17 @@
+{
+  "name": "zenquant-automation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node inject.js",
+    "login": "node login_automate.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "playwright": "^1.61.0"
+  }
+}

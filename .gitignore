@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+chrome-devtools-mcp/
+
+# Local/Temp Files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+.stylelintcache
+
+# OS-specific files
+.DS_Store
+Thumbs.db
