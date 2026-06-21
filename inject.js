@@ -67,11 +67,19 @@ async function loginAndInject() {
         const loginBtn = page.locator('.zq-cta').filter({ hasText: 'Login' }).first();
         await loginBtn.click({ force: true });
 
-        console.log("Waiting for redirection back to the Trade page...");
-        await page.waitForFunction(() => {
-            return window.location.href.includes('UITransaction/trade') || 
-                   (window.location.hash.length > 0 && !window.location.href.includes('login'));
-        }, { timeout: 30000 });
+        console.log("Waiting for redirection back to the Trade page (up to 90 seconds)...");
+        try {
+            await page.waitForFunction(() => {
+                return window.location.href.includes('UITransaction/trade') || 
+                       (window.location.hash.length > 0 && !window.location.href.includes('login'));
+            }, { timeout: 90000 });
+        } catch (e) {
+            // Capture what the page looks like at timeout for debugging
+            console.error("Redirect timed out. Current URL:", page.url());
+            await page.screenshot({ path: 'login_timeout_debug.png', fullPage: true });
+            console.error("Screenshot saved to login_timeout_debug.png");
+            throw e;
+        }
 
         console.log("Login successful! Waiting 10 seconds to ensure session tokens are saved...");
         await page.waitForTimeout(10000);

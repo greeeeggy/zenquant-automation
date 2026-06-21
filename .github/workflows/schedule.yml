@@ -62,6 +62,14 @@ jobs:
         ZENQUANT_PASSWORD: ${{ secrets.ZENQUANT_PASSWORD }}
       run: node inject.js
 
+    - name: Upload debug screenshot (if login failed)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: debug-screenshots
+        path: login_timeout_debug.png
+        if-no-files-found: ignore
+
     # Fire the 3-hour relay: timer.yml sleeps for 3h then re-triggers this workflow.
     # This creates a true rolling interval — next run starts exactly 3h after THIS run ends.
     # Requires GH_TOKEN secret (fine-grained PAT with Actions: Read & Write).
@@ -71,3 +79,4 @@ jobs:
       run: |
         gh workflow run timer.yml --repo greeeeggy/zenquant-automation
         echo "timer.yml triggered — next injection in ~3 hours."
+
