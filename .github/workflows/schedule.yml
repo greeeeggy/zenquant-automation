@@ -62,18 +62,12 @@ jobs:
         ZENQUANT_PASSWORD: ${{ secrets.ZENQUANT_PASSWORD }}
       run: node inject.js
 
-    # Write the next_run.txt timestamp so the Cloudflare Worker knows when to fire next.
-    # storageState.json is persisted via actions/cache above — not committed to the repo.
-    - name: Schedule next run
+    # Fire the 3-hour relay: timer.yml sleeps for 3h then re-triggers this workflow.
+    # This creates a true rolling interval — next run starts exactly 3h after THIS run ends.
+    # Requires GH_TOKEN secret (fine-grained PAT with Actions: Read & Write).
+    - name: Fire 3-hour timer
+      env:
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
       run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-        # Stamp the next allowed run time: 3 hours (10800 seconds) from now
-        NEXT_RUN=$(($(date +%s) + 10800))
-        echo "$NEXT_RUN" > next_run.txt
-        echo "Next run unlocks at: $(date -u -d @$NEXT_RUN '+%Y-%m-%d %H:%M:%S UTC')"
-
-        git add next_run.txt
-        git diff --quiet && git diff --staged --quiet || \
-          (git commit -m "chore: next run scheduled $(date -u -d @$NEXT_RUN '+%H:%M UTC')" && git push)
+        gh workflow run timer.yml --repo greeeeggy/zenquant-automation
+        echo "timer.yml triggered — next injection in ~3 hours."

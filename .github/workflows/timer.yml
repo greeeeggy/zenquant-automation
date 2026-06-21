@@ -1,0 +1,25 @@
+name: Zenquant Timer (3h relay)
+
+# Triggered by schedule.yml at the end of each successful run.
+# Sleeps for 3 hours then re-fires schedule.yml — creating a true
+# rolling 3-hour interval measured from the END of the previous run.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  wait-and-trigger:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Sleep 3 hours
+      run: |
+        echo "Sleeping for 3 hours (10800 seconds)..."
+        echo "Will trigger schedule.yml at: $(date -u -d '3 hours' '+%Y-%m-%d %H:%M:%S UTC')"
+        sleep 10800
+
+    - name: Trigger next injection run
+      env:
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      run: |
+        gh workflow run schedule.yml --repo greeeeggy/zenquant-automation
+        echo "schedule.yml triggered successfully."
