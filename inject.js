@@ -53,19 +53,21 @@ async function loginAndInject() {
         // We must manually switch to Philippines (+63) before entering the phone number.
         console.log("Selecting Philippines (+63) as country code...");
         try {
-            const countryBtn = page.locator('text=United States').first();
-            if (await countryBtn.isVisible({ timeout: 5000 })) {
-                await countryBtn.click({ force: true });
+            // Click the country dropdown trigger reliably (it's the first input background with space-between)
+            const countryTrigger = page.locator('.theme_Login_Input_bg.justify-between').first();
+            if (await countryTrigger.isVisible({ timeout: 5000 })) {
+                await countryTrigger.click({ force: true });
                 console.log("Country dropdown opened. Waiting 2 seconds...");
                 await page.waitForTimeout(2000);
 
-                const phOption = page.locator('text=Philippines').first();
+                // Find and click the Philippines row in the popup list
+                const phOption = page.locator('.country-list-row').filter({ hasText: 'Philippines' }).first();
                 await phOption.waitFor({ state: 'visible', timeout: 8000 });
                 await phOption.click({ force: true });
                 console.log("Philippines (+63) selected. Waiting 2 seconds...");
                 await page.waitForTimeout(2000);
             } else {
-                console.log("United States selector not visible — country may already be correct or selector changed.");
+                console.log("Country selector not visible — proceeding anyway.");
             }
         } catch (e) {
             console.log("Could not change country code:", e.message, "— proceeding anyway.");
