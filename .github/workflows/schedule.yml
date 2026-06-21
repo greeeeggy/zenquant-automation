@@ -48,13 +48,23 @@ jobs:
       if: steps.playwright-cache.outputs.cache-hit == 'true'
       run: npx playwright install-deps chromium
 
+    - name: Restore session state cache
+      uses: actions/cache@v4
+      with:
+        path: storageState.json
+        # Key rotates per run so we always save the freshest session
+        key: session-state-${{ github.run_id }}
+        restore-keys: session-state-
+
     - name: Run Injection Script
+      env:
+        ZENQUANT_PHONE: ${{ secrets.ZENQUANT_PHONE }}
+        ZENQUANT_PASSWORD: ${{ secrets.ZENQUANT_PASSWORD }}
       run: node inject.js
 
-    # Save refreshed session cookies AND write the next_run.txt timestamp.
-    # next_run.txt contains a Unix epoch (now + 3 hours). The Cloudflare Worker
-    # reads this file every 5 minutes and only triggers a new run once the time has passed.
-    - name: Save state and schedule next run
+    # Write the next_run.txt timestamp so the Cloudflare Worker knows when to fire next.
+    # storageState.json is persisted via actions/cache above — not committed to the repo.
+    - name: Schedule next run
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -64,7 +74,6 @@ jobs:
         echo "$NEXT_RUN" > next_run.txt
         echo "Next run unlocks at: $(date -u -d @$NEXT_RUN '+%Y-%m-%d %H:%M:%S UTC')"
 
-        git add storageState.json next_run.txt
-        # Only commit if there are actual changes
+        git add next_run.txt
         git diff --quiet && git diff --staged --quiet || \
-          (git commit -m "chore: session update — next run $(date -u -d @$NEXT_RUN '+%H:%M UTC')" && git push)
+          (git commit -m "chore: next run scheduled $(date -u -d @$NEXT_RUN '+%H:%M UTC')" && git push)

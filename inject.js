@@ -3,8 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 const CREDENTIALS = {
-  phone: '9632717830',
-  password: '1loveyouHannah_'
+  phone: process.env.ZENQUANT_PHONE,
+  password: process.env.ZENQUANT_PASSWORD
 };
 
 const URLS = {
