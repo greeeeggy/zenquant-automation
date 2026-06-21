@@ -45,8 +45,31 @@ async function loginAndInject() {
     
     if (isLoginPage) {
         console.log("Session invalid or expired! Running automated login...");
-        console.log("Waiting another 25 seconds for country code to auto-detect...");
-        await page.waitForTimeout(25000);
+        console.log("Waiting 10 seconds for page to fully load...");
+        await page.waitForTimeout(10000);
+
+        // Explicitly select Philippines as country code.
+        // GitHub Actions runners are US-based, so auto-detect always picks United States (+1).
+        // We must manually switch to Philippines (+63) before entering the phone number.
+        console.log("Selecting Philippines (+63) as country code...");
+        try {
+            const countryBtn = page.locator('text=United States').first();
+            if (await countryBtn.isVisible({ timeout: 5000 })) {
+                await countryBtn.click({ force: true });
+                console.log("Country dropdown opened. Waiting 2 seconds...");
+                await page.waitForTimeout(2000);
+
+                const phOption = page.locator('text=Philippines').first();
+                await phOption.waitFor({ state: 'visible', timeout: 8000 });
+                await phOption.click({ force: true });
+                console.log("Philippines (+63) selected. Waiting 2 seconds...");
+                await page.waitForTimeout(2000);
+            } else {
+                console.log("United States selector not visible — country may already be correct or selector changed.");
+            }
+        } catch (e) {
+            console.log("Could not change country code:", e.message, "— proceeding anyway.");
+        }
 
         // Enter Phone Number
         console.log("Entering phone number...");
