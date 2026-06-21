@@ -52,11 +52,15 @@ async function loginAndInject() {
         console.log("Entering phone number...");
         const phoneInput = page.locator('input[type="number"]').first();
         await phoneInput.fill(CREDENTIALS.phone, { force: true });
+        console.log("Waiting 10 seconds after entering phone number...");
+        await page.waitForTimeout(10000);
 
         // Enter Password
         console.log("Entering password...");
         const passwordInput = page.locator('input[type="password"]').first();
         await passwordInput.fill(CREDENTIALS.password, { force: true });
+        console.log("Waiting 10 seconds after entering password...");
+        await page.waitForTimeout(10000);
 
         // Click Login
         console.log("Clicking the login button...");
