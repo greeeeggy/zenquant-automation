@@ -139,10 +139,14 @@ async function loginAndInject() {
                 await page.waitForTimeout(10000);
             }
         } else {
-            console.log("No Claimable button found. It might still be on cooldown, or we might just need to inject. Proceeding...");
+            console.log("No Claimable button found. Taking a debug screenshot...");
+            await page.screenshot({ path: 'trade_page_debug.png', fullPage: true });
+            console.log("Screenshot saved as trade_page_debug.png. It might still be on cooldown, or we might just need to inject. Proceeding...");
         }
     } catch(e) {
-        console.log("Claimable check timed out, proceeding to injection...");
+        console.log("Claimable check timed out. Taking a debug screenshot...");
+        await page.screenshot({ path: 'trade_page_debug.png', fullPage: true });
+        console.log("Proceeding to injection...");
     }
 
     // Amount Container - put the amount 50

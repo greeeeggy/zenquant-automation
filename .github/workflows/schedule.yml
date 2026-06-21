@@ -62,12 +62,12 @@ jobs:
         ZENQUANT_PASSWORD: ${{ secrets.ZENQUANT_PASSWORD }}
       run: node inject.js
 
-    - name: Upload debug screenshot (if login failed)
+    - name: Upload debug screenshots
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: debug-screenshots
-        path: login_timeout_debug.png
+        path: "*.png"
         if-no-files-found: ignore
 
     # Fire the 3-hour relay: timer.yml sleeps for 3h then re-triggers this workflow.
