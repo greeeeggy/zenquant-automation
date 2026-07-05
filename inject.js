@@ -131,7 +131,7 @@ async function loginAndInject() {
     }
 
     // ── 3. Claim all Claimable buttons ────────────────────────────────────────
-    // Claimable buttons are: <uni-view class="btnConfirm">Claimable</uni-view>
+    // Claimable buttons are: <uni-view class="trade-pos__claim">Claimable</uni-view>
     // We click each one, wait 5s, then confirm the dialog (class: zq-cert__confirm
     // or btnConfirm containing "Confirm"), then wait 5s before the next.
     console.log('Checking for Claimable buttons...');
@@ -140,7 +140,7 @@ async function loginAndInject() {
     let claimIndex = 0;
     while (true) {
       await page.waitForTimeout(1000);
-      const claimables = page.locator('.btnConfirm', { hasText: 'Claimable' });
+      const claimables = page.locator('.trade-pos__claim', { hasText: 'Claimable' });
       const count = await claimables.count();
       console.log(`Found ${count} Claimable button(s).`);
 
