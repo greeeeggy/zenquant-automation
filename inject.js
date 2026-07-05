@@ -117,8 +117,25 @@ async function loginAndInject() {
     }
     
     // 2. Perform the Injection Flow
+    if (!page.url().includes('UITransaction/trade')) {
+        console.log("Navigating to Trade page...");
+        await page.goto(URLS.trade, { waitUntil: 'domcontentloaded' });
+    }
+    
     console.log("On Trade page. Checking Open positions...");
-    await page.waitForTimeout(3000); // Wait for page to fully render
+    await page.waitForTimeout(5000); // Wait for page to fully render
+
+    // Close any Activity notice modal if it popped up
+    try {
+        const cancelModalBtn = page.locator('text=Cancel').first();
+        if (await cancelModalBtn.isVisible({ timeout: 2000 })) {
+            console.log("Activity notice modal detected, clicking Cancel...");
+            await cancelModalBtn.click({ force: true });
+            await page.waitForTimeout(2000);
+        }
+    } catch(e) {
+        console.log("No Activity notice modal blocking.");
+    }
 
     // Look for "Claimable" button
     const claimableBtn = page.locator('text=Claimable').first();
