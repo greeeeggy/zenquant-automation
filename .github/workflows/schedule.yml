@@ -53,8 +53,8 @@ jobs:
       with:
         path: storageState.json
         # Key rotates per run so we always save the freshest session
-        key: session-state-${{ github.run_id }}
-        restore-keys: session-state-
+        key: session-state-v2-${{ github.run_id }}
+        restore-keys: session-state-v2-
 
     - name: Run Injection Script
       env:
