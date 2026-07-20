@@ -1,12 +1,6 @@
 name: Zenquant Auto-Inject
 
 on:
-  schedule:
-    # Safety net only: fires once daily at midnight UTC.
-    # The real 3-hour rolling schedule is driven by the Cloudflare Worker (see cloudflare-worker/).
-    # If the Worker chain ever breaks, this guarantees the job runs at least once per day.
-    - cron: '0 0 * * *'
-  
   # This allows you to manually click a "Run workflow" button on GitHub to test it
   workflow_dispatch: 
 
