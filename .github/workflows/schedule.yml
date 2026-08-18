@@ -1,76 +1,81 @@
 name: Zenquant Auto-Inject
 
 on:
-  # This allows you to manually click a "Run workflow" button on GitHub to test it
-  workflow_dispatch: 
+  workflow_dispatch:
+
+concurrency:
+  group: zenquant-auto-inject
+  cancel-in-progress: false
 
 jobs:
   run-automation:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+
+    # Run everything inside an environment where
+    # Chromium + Playwright Linux dependencies already exist.
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.0-noble
+      options: --ipc=host
+
+    timeout-minutes: 20
+
     permissions:
-      contents: write
-    
+      contents: read
+
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
+      - name: Install Node Dependencies
+        run: npm ci
 
-    - name: Install Dependencies
-      run: npm install
+      - name: Restore Session State
+        uses: actions/cache@v4
+        with:
+          path: storageState.json
+          key: session-state-v2-${{ github.run_id }}
+          restore-keys: |
+            session-state-v2-
 
-    - name: Get Playwright version
-      id: playwright-version
-      run: echo "PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package.json').devDependencies.playwright)")" >> $GITHUB_ENV
+      - name: Verify Playwright
+        run: |
+          node --version
+          npx playwright --version
+          npx playwright install --list
 
-    - name: Cache Playwright Browsers
-      id: playwright-cache
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}
+      - name: Run Injection Script
+        timeout-minutes: 10
+        env:
+          ZENQUANT_PHONE: ${{ secrets.ZENQUANT_PHONE }}
+          ZENQUANT_PASSWORD: ${{ secrets.ZENQUANT_PASSWORD }}
+        run: node inject.js
 
-    - name: Install Playwright Browsers
-      if: steps.playwright-cache.outputs.cache-hit != 'true'
-      run: npx playwright install chromium --with-deps
+      - name: Upload Debug Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshots-${{ github.run_id }}
+          path: "*.png"
+          if-no-files-found: ignore
 
-    - name: Install Playwright System Dependencies
-      if: steps.playwright-cache.outputs.cache-hit == 'true'
-      run: npx playwright install-deps chromium
+  # Separate job so the timer still gets fired even if
+  # the Playwright automation fails.
+  schedule-next-run:
+    needs: run-automation
+    if: always()
 
-    - name: Restore session state cache
-      uses: actions/cache@v4
-      with:
-        path: storageState.json
-        # Key rotates per run so we always save the freshest session
-        key: session-state-v2-${{ github.run_id }}
-        restore-keys: session-state-v2-
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
 
-    - name: Run Injection Script
-      env:
-        ZENQUANT_PHONE: ${{ secrets.ZENQUANT_PHONE }}
-        ZENQUANT_PASSWORD: ${{ secrets.ZENQUANT_PASSWORD }}
-      run: node inject.js
+    permissions:
+      actions: write
+      contents: read
 
-    - name: Upload debug screenshots
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: debug-screenshots
-        path: "*.png"
-        if-no-files-found: ignore
-
-    # Fire the 3-hour relay: timer.yml sleeps for 3h then re-triggers this workflow.
-    # This creates a true rolling interval — next run starts exactly 3h after THIS run ends.
-    # Requires GH_TOKEN secret (fine-grained PAT with Actions: Read & Write).
-    - name: Fire 3-hour timer
-      env:
-        GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      run: |
-        gh workflow run timer.yml --repo greeeeggy/zenquant-automation
-        echo "timer.yml triggered — next injection in ~3 hours."
+    steps:
+      - name: Trigger 3-hour timer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run timer.yml --repo ${{ github.repository }}
+          echo "Timer triggered. Next injection in ~3 hours."
 
