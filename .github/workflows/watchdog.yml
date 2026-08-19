@@ -1,0 +1,91 @@
+name: Zenquant Watchdog
+
+on:
+  # Check every 15 minutes
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+
+  # Allow manual testing
+  workflow_dispatch:
+
+concurrency:
+  group: zenquant-watchdog
+  cancel-in-progress: true
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check schedule.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Checking latest schedule.yml run..."
+
+          LATEST=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/schedule.yml/runs?per_page=1")
+
+          RUN_COUNT=$(echo "$LATEST" | jq '.workflow_runs | length')
+
+          # If schedule.yml has never run, start it.
+          if [ "$RUN_COUNT" -eq 0 ]; then
+            echo "No previous schedule.yml run found."
+            echo "Triggering schedule.yml..."
+
+            gh workflow run schedule.yml \
+              --repo "$GITHUB_REPOSITORY"
+
+            exit 0
+          fi
+
+          STATUS=$(echo "$LATEST" | jq -r '.workflow_runs[0].status')
+          CREATED=$(echo "$LATEST" | jq -r '.workflow_runs[0].created_at')
+          RUN_ID=$(echo "$LATEST" | jq -r '.workflow_runs[0].id')
+
+          echo "Latest run ID: $RUN_ID"
+          echo "Status: $STATUS"
+          echo "Created at: $CREATED"
+
+          # Don't create a duplicate if schedule.yml
+          # is already running or waiting to run.
+          if [ "$STATUS" = "queued" ] || [ "$STATUS" = "in_progress" ]; then
+            echo "schedule.yml is already active."
+            echo "Nothing to do."
+            exit 0
+          fi
+
+          NOW=$(date -u +%s)
+          LAST=$(date -d "$CREATED" +%s)
+
+          AGE=$((NOW - LAST))
+
+          HOURS=$((AGE / 3600))
+          MINUTES=$(((AGE % 3600) / 60))
+
+          echo "Latest schedule.yml run was ${HOURS}h ${MINUTES}m ago."
+
+          # 3 hours 20 minutes
+          # 3 × 3600 + 20 × 60 = 12,000 seconds
+          THRESHOLD=12000
+
+          if [ "$AGE" -ge "$THRESHOLD" ]; then
+            echo "WATCHDOG: schedule.yml is overdue."
+            echo "Triggering recovery run..."
+
+            gh workflow run schedule.yml \
+              --repo "$GITHUB_REPOSITORY"
+
+            echo "Recovery run dispatched."
+          else
+            REMAINING=$((THRESHOLD - AGE))
+            REMAINING_MIN=$((REMAINING / 60))
+
+            echo "Everything is healthy."
+            echo "About ${REMAINING_MIN} minutes until watchdog threshold."
+          fi
