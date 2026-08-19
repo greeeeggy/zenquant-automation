@@ -1,0 +1,82 @@
+name: Cleanup Old Workflow Runs
+
+on:
+  # Runs immediately when this file is added or changed
+  push:
+    paths:
+      - '.github/workflows/cleanup.yml'
+
+  # Then run once every week
+  # Wednesday at 04:24 UTC = 12:24 PM Philippines
+  schedule:
+    - cron: '24 4 * * 3'
+
+  # Also allow manual runs
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Keep latest 50 runs per workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Cleaning old workflow runs..."
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo ""
+
+          # Get every workflow in this repository
+          WORKFLOWS=$(gh api \
+            --paginate \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows?per_page=100" \
+            --jq '.workflows[] | [.id, .name] | @tsv')
+
+          while IFS=$'\t' read -r WORKFLOW_ID WORKFLOW_NAME; do
+            echo "----------------------------------------"
+            echo "Workflow: $WORKFLOW_NAME"
+            echo "ID: $WORKFLOW_ID"
+
+            # Get all completed runs, newest first.
+            RUN_IDS=$(gh api \
+              --paginate \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/${WORKFLOW_ID}/runs?status=completed&per_page=100" \
+              --jq '.workflow_runs[].id')
+
+            RUN_COUNT=$(echo "$RUN_IDS" | sed '/^$/d' | wc -l)
+
+            echo "Completed runs found: $RUN_COUNT"
+
+            if [ "$RUN_COUNT" -le 50 ]; then
+              echo "50 or fewer runs. Nothing to delete."
+              continue
+            fi
+
+            DELETE_COUNT=$((RUN_COUNT - 50))
+
+            echo "Keeping newest 50."
+            echo "Deleting $DELETE_COUNT older runs..."
+
+            # Skip newest 50 and delete everything older.
+            echo "$RUN_IDS" |
+              sed '/^$/d' |
+              tail -n +51 |
+              while read -r RUN_ID; do
+                echo "Deleting run $RUN_ID..."
+
+                gh api \
+                  --method DELETE \
+                  "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}"
+              done
+
+            echo "Cleanup complete for $WORKFLOW_NAME."
+          done <<< "$WORKFLOWS"
+
+          echo ""
+          echo "All workflows cleaned."
