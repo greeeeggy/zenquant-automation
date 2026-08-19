@@ -21,7 +21,7 @@ permissions:
 jobs:
   cleanup:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+   
 
     steps:
       - name: Keep latest 50 runs per workflow
