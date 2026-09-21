@@ -1,8 +1,9 @@
 name: Zenquant Watchdog Snooze
 
 # Dispatched by watchdog.yml when schedule.yml is healthy.
-# Sleeps until just before the 3h 20m threshold, then checks
-# and triggers a recovery run if schedule.yml is overdue.
+# Sleeps until T+3h+2min after the last schedule run, then checks
+# and triggers a recovery run if schedule.yml is still missing.
+# Detection target: within ~2 minutes of a missed run.
 #
 # concurrency cancel-in-progress means every time the 15-min
 # watchdog runs, it cancels the old snooze and replaces it with
@@ -77,8 +78,10 @@ jobs:
 
           echo "schedule.yml last ran ${HOURS}h ${MINUTES}m ago."
 
-          # 3 hours 20 minutes = 12,000 seconds
-          THRESHOLD=12000
+          # Snooze fires at T+3h+2min (10920s after last run).
+          # Use 3h (10800s) as threshold — any age >= 3h means schedule
+          # should have already fired and didn't.
+          THRESHOLD=10800
 
           if [ "$AGE" -ge "$THRESHOLD" ]; then
             echo "SNOOZE WATCHDOG: schedule.yml is overdue. Triggering recovery..."

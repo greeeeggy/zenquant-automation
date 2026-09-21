@@ -90,12 +90,14 @@ jobs:
             echo "About ${REMAINING_MIN} minutes until watchdog threshold."
 
             # Dispatch (or replace) the snooze watchdog.
-            # Sleep for (remaining - 2 min buffer) so it wakes up right when
-            # schedule.yml should have fired and checks immediately.
+            # Target: wake up at exactly T+3h+2min after last schedule run.
+            # 3h = 10800s, +2min buffer = 10920s.
+            # At wake time AGE ≈ 10920 >= 10800 (snooze threshold) → triggers recovery.
             # The snooze's concurrency (cancel-in-progress: true) means this
             # call cancels any existing snooze and starts a fresh one —
             # never stacking multiple sleepers.
-            SLEEP_SECS=$((REMAINING - 120))
+            SNOOZE_TARGET=10920
+            SLEEP_SECS=$((SNOOZE_TARGET - AGE))
             if [ "$SLEEP_SECS" -lt 30 ]; then
               SLEEP_SECS=30
             fi
