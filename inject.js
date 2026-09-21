@@ -185,44 +185,30 @@ async function loginAndInject() {
       }
     }
 
-    // ── 4. Helper: perform an injection ──────────────────────────────────────
-    async function performInjection(tabText, amount) {
-      console.log(`\n── Injection: tab="${tabText}", amount=${amount} ──`);
-
-      // Click the plan tab (class: trade-dur, text matches tabText exactly)
-      try {
-        const tab = page.locator('.trade-dur', { hasText: tabText }).first();
-        if (await tab.isVisible({ timeout: 5000 })) {
-          await tab.click({ force: true });
-          console.log(`Clicked "${tabText}" tab.`);
-          await page.waitForTimeout(2000);
-        } else {
-          console.log(`Tab "${tabText}" not visible — proceeding anyway.`);
-        }
-      } catch (e) {
-        console.log(`Error clicking tab "${tabText}": ${e.message}`);
-      }
+    // ── 4. Helper: perform injection into 3Hours ────────────────────────────
+    async function performInjection(amount) {
+      const cleanAmount = Math.floor(Number(amount));
+      console.log(`\n── Injection: 3Hours, amount=${cleanAmount} ──`);
 
       // Fill amount input — locate the textbox, clear it, then type
-      console.log(`Filling amount: ${amount}...`);
+      console.log(`Filling amount: ${cleanAmount}...`);
       try {
-        const amountInput = page.locator('input[type="text"], input:not([type])', {
-          // Narrow to the Amount section input
-        }).first();
+        const amountInput = page.locator('.trade-input input, input.uni-input-input, input[type="text"]').first();
         await amountInput.click({ force: true });
         await amountInput.fill('', { force: true });
-        await amountInput.fill(amount.toString(), { force: true });
+        await amountInput.fill(cleanAmount.toString(), { force: true });
       } catch (e) {
         // Fallback: evaluate directly in DOM
         console.log(`Input fill failed (${e.message}), trying JS fallback...`);
         await page.evaluate((val) => {
-          const inp = document.querySelector('input');
+          const inp = document.querySelector('.trade-input input, input.uni-input-input, input');
           if (inp) {
             const nativeInput = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
             nativeInput.call(inp, val);
             inp.dispatchEvent(new Event('input', { bubbles: true }));
+            inp.dispatchEvent(new Event('change', { bubbles: true }));
           }
-        }, amount.toString());
+        }, cleanAmount.toString());
       }
       await page.waitForTimeout(2000);
 
@@ -253,31 +239,43 @@ async function loginAndInject() {
       await page.waitForTimeout(10000);
     }
 
-    // ── 5. Inject $50 into Plus ───────────────────────────────────────────────
-    await performInjection('Plus', 50);
-
-    // ── 6. Read remaining Available USD ──────────────────────────────────────
-    console.log('\nReading remaining Available USD...');
-    const bodyText = await page.locator('body').innerText();
-    const matches = [...bodyText.matchAll(/Available\s*[\n\r]*\s*([\d.,]+)/gi)];
+    // ── 5. Read Available USD ────────────────────────────────────────────────
+    console.log('\nReading Available USD...');
     let availableBalance = 0;
 
-    if (matches.length > 0) {
-      const rawStr = matches[matches.length - 1][1].replace(/,/g, '');
-      const parsed = parseFloat(rawStr);
-      if (!isNaN(parsed)) availableBalance = parsed;
+    try {
+      const balanceElem = page.locator('.trade-inject-balance__num').first();
+      if (await balanceElem.isVisible({ timeout: 3000 }).catch(() => false)) {
+        const rawText = (await balanceElem.innerText()).replace(/,/g, '').trim();
+        const parsed = parseFloat(rawText);
+        if (!isNaN(parsed)) availableBalance = parsed;
+      }
+    } catch (e) {
+      console.log('Direct balance selector read failed, falling back to body regex:', e.message);
     }
-    console.log(`Remaining Available USD: ${availableBalance}`);
 
-    // Whole number only (no cents)
+    if (availableBalance === 0) {
+      const bodyText = await page.locator('body').innerText();
+      const matches = [...bodyText.matchAll(/Available\s*[\n\r]*\s*([\d.,]+)/gi)];
+      if (matches.length > 0) {
+        const rawStr = matches[matches.length - 1][1].replace(/,/g, '');
+        const parsed = parseFloat(rawStr);
+        if (!isNaN(parsed)) availableBalance = parsed;
+      }
+    }
+
+    console.log(`Available USD raw: ${availableBalance}`);
+
+    // Whole number only (no cents or decimals)
     const wholeAmount = Math.floor(availableBalance);
+    console.log(`Available USD (whole number only): ${wholeAmount}`);
 
-    // ── 7. Inject remaining whole USD into 3Hours ─────────────────────────────
+    // ── 6. Inject all whole USD into 3Hours ──────────────────────────────────
     if (wholeAmount >= 10) {
-      console.log(`Balance ${wholeAmount} >= 10 — injecting into 3Hours...`);
-      await performInjection('3Hours', wholeAmount);
+      console.log(`Balance ${wholeAmount} >= 10 — injecting all into 3Hours...`);
+      await performInjection(wholeAmount);
     } else {
-      console.log(`Balance ${wholeAmount} < 10 — skipping 3Hours injection.`);
+      console.log(`Balance ${wholeAmount} < 10 (minimum is 10) — skipping 3Hours injection.`);
     }
 
     console.log('\n✅ All done!');
