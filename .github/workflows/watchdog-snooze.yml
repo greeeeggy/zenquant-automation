@@ -1,0 +1,89 @@
+name: Zenquant Watchdog Snooze
+
+# Dispatched by watchdog.yml when schedule.yml is healthy.
+# Sleeps until just before the 3h 20m threshold, then checks
+# and triggers a recovery run if schedule.yml is overdue.
+#
+# concurrency cancel-in-progress means every time the 15-min
+# watchdog runs, it cancels the old snooze and replaces it with
+# a fresh one — effectively "updating" the snooze timer, never
+# stacking multiple sleepers.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sleep_seconds:
+        description: 'Seconds to sleep before checking schedule.yml'
+        required: true
+        type: string
+
+concurrency:
+  group: zenquant-snooze
+  cancel-in-progress: true
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  snooze-and-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Sleep until check time
+        run: |
+          echo "Snooze started. Sleeping for ${{ inputs.sleep_seconds }} seconds..."
+          echo "Will check at: $(date -u -d '${{ inputs.sleep_seconds }} seconds' '+%Y-%m-%d %H:%M:%S UTC')"
+          sleep ${{ inputs.sleep_seconds }}
+
+      - name: Check and recover if needed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Snooze complete. Checking latest schedule.yml run..."
+
+          LATEST=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/schedule.yml/runs?per_page=1")
+
+          RUN_COUNT=$(echo "$LATEST" | jq '.workflow_runs | length')
+
+          if [ "$RUN_COUNT" -eq 0 ]; then
+            echo "No previous schedule.yml run found. Triggering..."
+            gh workflow run schedule.yml --repo "$GITHUB_REPOSITORY"
+            exit 0
+          fi
+
+          STATUS=$(echo "$LATEST" | jq -r '.workflow_runs[0].status')
+          CREATED=$(echo "$LATEST" | jq -r '.workflow_runs[0].created_at')
+          RUN_ID=$(echo "$LATEST" | jq -r '.workflow_runs[0].id')
+
+          echo "Latest run ID:  $RUN_ID"
+          echo "Status:         $STATUS"
+          echo "Created at:     $CREATED"
+
+          # If schedule.yml is already active, nothing to do.
+          if [ "$STATUS" = "queued" ] || [ "$STATUS" = "in_progress" ]; then
+            echo "schedule.yml is already active. Nothing to do."
+            exit 0
+          fi
+
+          NOW=$(date -u +%s)
+          LAST=$(date -d "$CREATED" +%s)
+          AGE=$((NOW - LAST))
+
+          HOURS=$((AGE / 3600))
+          MINUTES=$(((AGE % 3600) / 60))
+
+          echo "schedule.yml last ran ${HOURS}h ${MINUTES}m ago."
+
+          # 3 hours 20 minutes = 12,000 seconds
+          THRESHOLD=12000
+
+          if [ "$AGE" -ge "$THRESHOLD" ]; then
+            echo "SNOOZE WATCHDOG: schedule.yml is overdue. Triggering recovery..."
+            gh workflow run schedule.yml --repo "$GITHUB_REPOSITORY"
+            echo "Recovery run dispatched."
+          else
+            echo "schedule.yml is healthy. No action needed."
+          fi
